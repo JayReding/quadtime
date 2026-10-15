@@ -51,10 +51,16 @@ and distinct IDs mean the gate can be identified from any angle.
 .venv/bin/python tools/make_markers.py            # 75 mm markers by default
 ```
 
-This writes `markers/marker_<id>.png` and `markers/gate_markers.html`. Open the
-HTML in a browser and print at **100% scale** (turn off "fit to page"), then
-check that each marker's black square really measures 75 mm. Keep the white
-border clear.
+This writes one PDF per marker - `markers/marker_0.pdf` and so on - with each
+marker drawn as vector artwork at its true physical size on its own A4 page.
+There is no browser in the loop and nothing to scale: print the page on A4 at
+100% (leave "fit to page" off) and the black square comes out at 75 mm. Each
+page also has a 50 mm ruler, so the scale can be checked with a rule before the
+marker goes near the gate. Keep the white border clear.
+
+```bash
+.venv/bin/python tools/make_markers.py --marker-size-mm 40 --page letter
+```
 
 | marker ID | inside corner |
 |-----------|---------------|
@@ -172,7 +178,7 @@ The settings most worth tuning:
 ## Tools
 
 ```bash
-# print the gate markers
+# print the gate markers, one PDF per marker
 .venv/bin/python tools/make_markers.py
 
 # calibrate the camera
@@ -194,7 +200,8 @@ resulting lap times.
 
 Covers the gate geometry, pose recovery from a known camera position, the
 crossing fit and all of its rejection guards, the calibration pipeline (on
-synthetic ChArUco views) and the full race flow on the synthetic fly-through.
+synthetic ChArUco views), the marker PDFs (module pattern, exact physical size,
+page geometry) and the full race flow on the synthetic fly-through.
 
 ## Project layout
 
@@ -208,6 +215,8 @@ quadtime/pose.py          AprilTag detection and solvePnP pose
 quadtime/fpv.py           plane-distance tracking and pass detection
 quadtime/calibration.py   camera intrinsics, loading and nominal fallback
 quadtime/race.py          FPV engine, race state machine and capture thread
+quadtime/markers.py       printable marker pages at true physical size
+quadtime/pdfcanvas.py     tiny dependency-free vector PDF writer
 templates/, static/       web UI
 tools/                    marker generator, camera calibration, clip analyser
 tests/                    unit and integration tests
