@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>quadtime</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>quadtime</h1>
+    <span id="phase" class="pill idle" data-phase="idle">IDLE</span>
+    <span class="dim">FPV gate timing</span>
+    <span id="fps" class="dim">-- fps</span>
+  </header>
+
+  <main>
+    <section class="video">
+      <img id="stream" src="{{ url_for('stream') }}" alt="drone camera">
+      <div class="diagnostics">
+        <span id="gate" class="diag bad">gate: ?</span>
+        <span id="distance" class="diag dim">distance: -- m</span>
+        <span id="markers" class="diag dim">markers: 0</span>
+        <span id="closing" class="diag dim">closing: -- m/s</span>
+        <span id="source" class="diag dim">source: ?</span>
+        <span id="error" class="diag bad hidden"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="controls">
+        <button id="start" class="primary">Start</button>
+        <button id="stop" disabled>Stop</button>
+      </div>
+
+      <div id="clock" class="clock">0.000</div>
+      <div id="clock-label" class="dim">ready</div>
+
+      <h2>Laps</h2>
+      <table id="laps">
+        <thead>
+          <tr><th>#</th><th>Lap</th><th>Total</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div id="summary" class="summary hidden">
+        <h2>Result</h2>
+        <div class="row"><span>Total time</span><b id="sum-total">-</b></div>
+        <div class="row"><span>Laps</span><b id="sum-count">-</b></div>
+        <div class="row"><span>Best lap</span><b id="sum-best">-</b></div>
+        <div class="row"><span>Average lap</span><b id="sum-avg">-</b></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

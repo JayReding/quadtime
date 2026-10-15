@@ -1,0 +1,36 @@
+{
+  "source": "0",
+  "width": 640,
+  "height": 480,
+  "fps": 30.0,
+  "fourcc": "YUYV",
+
+  "aruco_dict": "DICT_APRILTAG_36h11",
+  "marker_ids": [0, 1, 2, 3],
+  "gate_width_m": 0.6096,
+  "gate_height_m": 0.6096,
+  "marker_size_m": 0.075,
+  "aperture_margin_m": 0.10,
+
+  "intrinsics_file": "config/camera.json",
+  "hfov_deg": 120.0,
+
+  "max_reprojection_error_px": 4.0,
+  "min_marker_perimeter_rate": 0.02,
+  "min_markers": 2,
+
+  "fit_samples": 6,
+  "min_closing_speed_mps": 1.5,
+  "close_distance_m": 1.0,
+  "lost_frames_to_trigger": 2,
+  "max_extrapolation_s": 0.25,
+  "max_fit_residual_m": 0.25,
+  "min_lap_time_s": 2.0,
+  "rearm_distance_m": 1.5,
+  "reset_timeout_s": 0.5,
+
+  "countdown_s": 5.0,
+  "host": "127.0.0.1",
+  "port": 5000,
+  "jpeg_quality": 80
+}
