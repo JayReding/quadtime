@@ -1,10 +1,14 @@
-"""Printable marker pages.
+"""Printable marker artwork.
 
-Turns an ArUco / AprilTag dictionary entry into a one-marker PDF page whose
-black square measures an exact number of millimetres on paper.  The marker is
-drawn as vector rectangles rather than a bitmap, so its edges stay crisp at any
-printer resolution and the physical size is fixed by the page geometry instead
-of by an image DPI.
+Two outputs from the same marker pattern:
+
+* **PDF pages** whose black square measures an exact number of millimetres on
+  paper, for printing and sticking onto the gate.
+* **STL tiles** with a white base layer and a raised black marker layer, for
+  printing the marker on a 3D printer.
+
+Both are drawn as vector geometry rather than a bitmap, so the size is fixed by
+the geometry instead of by an image resolution.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from typing import Sequence
 import cv2
 
 from .pdfcanvas import PdfPage
+from .stl import Solid
 
 # Standard page sizes in millimetres (width, height).
 PAGE_SIZES_MM = {"a4": (210.0, 297.0), "letter": (215.9, 279.4)}
@@ -62,6 +67,77 @@ def _check_fits(marker_size_mm: float, quiet_zone_mm: float, page: str,
             f"a {marker_size_mm:.0f} mm marker is too wide for {page}; "
             "use a smaller --marker-size-mm"
         )
+
+
+def marker_cells(grid: Sequence[Sequence[bool]]) -> set[tuple[int, int]]:
+    """Black modules as ``(column, y)`` cells, with ``y`` counted upwards.
+
+    The grid rows arrive top-down; ``y`` flips them into the mathematical ``y``
+    axis of the tile (and of the PDF page), so a marker seen from above keeps
+    the same orientation it has in the image.
+    """
+    modules = len(grid)
+    return {
+        (col, modules - 1 - row)
+        for row, cells in enumerate(grid)
+        for col, black in enumerate(cells)
+        if black
+    }
+
+
+def render_marker_stls(
+    base_path: str | Path,
+    pattern_path: str | Path,
+    grid: Sequence[Sequence[bool]],
+    marker_size_mm: float,
+    *,
+    quiet_zone_mm: float = 15.0,
+    base_thickness_mm: float = 1.6,
+    marker_thickness_mm: float = 0.6,
+    name: str = "quadtime marker",
+) -> None:
+    """Write the two stacked STL layers of a 3D printed marker.
+
+    ``base_path`` is the white tile: a plate ``marker_size_mm`` plus the quiet
+    zone on every side, sitting on the bed.  ``pattern_path`` is the black
+    layer: the marker's black modules raised on top of the base.  Printing them
+    in one job with a filament change at the base thickness, or as two
+    materials, gives a white tile with a black marker.
+
+    The defaults - 1.6 mm and 0.6 mm - are whole numbers of 0.2 mm layers, so
+    the colour change falls on a layer boundary.
+    """
+    modules = len(grid)
+    if modules == 0 or any(len(row) != modules for row in grid):
+        raise ValueError("marker grid must be a non-empty square")
+    if marker_size_mm <= 0 or base_thickness_mm <= 0 or marker_thickness_mm <= 0:
+        raise ValueError("marker size and layer thicknesses must be positive")
+
+    cells = marker_cells(grid)
+    columns = {column for column, _ in cells}
+    rows = {row for _, row in cells}
+    if columns != set(range(modules)) or rows != set(range(modules)):
+        raise ValueError(
+            "the marker has no full black border, so its outer size is not "
+            "defined; regenerate it with border_bits >= 1"
+        )
+
+    cell_mm = marker_size_mm / modules
+    half = (marker_size_mm + 2 * quiet_zone_mm) / 2.0
+
+    base = Solid(f"{name} white base")
+    base.add_box((-half, -half, 0.0), (half, half, base_thickness_mm))
+    base.save(base_path)
+
+    pattern = Solid(f"{name} black marker")
+    pattern.add_cells(
+        cells,
+        cell_mm,
+        (-marker_size_mm / 2.0, -marker_size_mm / 2.0),
+        base_thickness_mm,
+        base_thickness_mm + marker_thickness_mm,
+    )
+    pattern.save(pattern_path)
 
 
 def render_marker_pdf(

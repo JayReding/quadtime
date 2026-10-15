@@ -6,9 +6,16 @@ import unittest
 from pathlib import Path
 
 import cv2
+import numpy as np
 
-from quadtime.markers import PAGE_SIZES_MM, marker_grid, render_marker_pdf
+from quadtime.markers import (
+    PAGE_SIZES_MM,
+    marker_grid,
+    render_marker_pdf,
+    render_marker_stls,
+)
 from quadtime.pdfcanvas import PdfPage, mm_to_pt
+from tests.stlhelpers import bounds, parse_stl, signed_volume
 
 DICTIONARY = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
 
@@ -118,6 +125,109 @@ class MarkerPdfTest(unittest.TestCase):
     def test_rejects_a_marker_that_cannot_fit(self):
         with self.assertRaises(ValueError):
             self._render(size_mm=400.0)
+
+
+class MarkerStlTest(unittest.TestCase):
+    """The two stacked layers of a 3D printed marker."""
+
+    SIZE_MM = 75.0
+    QUIET_MM = 15.0
+    BASE_T_MM = 1.5
+    MARKER_T_MM = 0.6
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base_path = Path(self.tmp.name) / "marker_0_base.stl"
+        self.pattern_path = Path(self.tmp.name) / "marker_0_pattern.stl"
+        self.grid = marker_grid(DICTIONARY, 0)
+        render_marker_stls(
+            self.base_path, self.pattern_path, self.grid, self.SIZE_MM,
+            quiet_zone_mm=self.QUIET_MM, base_thickness_mm=self.BASE_T_MM,
+            marker_thickness_mm=self.MARKER_T_MM,
+        )
+
+    def test_base_is_a_plate_of_marker_plus_quiet_zone(self):
+        _header, triangles = parse_stl(self.base_path)
+        low, high = bounds(triangles)
+        half = (self.SIZE_MM + 2 * self.QUIET_MM) / 2.0
+        self.assertAlmostEqual(low[0], -half, places=6)
+        self.assertAlmostEqual(high[0], half, places=6)
+        self.assertAlmostEqual(low[1], -half, places=6)
+        self.assertAlmostEqual(high[1], half, places=6)
+        self.assertAlmostEqual(low[2], 0.0, places=6)
+        self.assertAlmostEqual(high[2], self.BASE_T_MM, places=6)
+        self.assertAlmostEqual(
+            signed_volume(triangles), (2 * half) ** 2 * self.BASE_T_MM, places=4
+        )
+
+    def test_pattern_is_exactly_the_marker_square_on_top_of_the_base(self):
+        _header, triangles = parse_stl(self.pattern_path)
+        low, high = bounds(triangles)
+        self.assertAlmostEqual(high[0] - low[0], self.SIZE_MM, places=6)
+        self.assertAlmostEqual(high[1] - low[1], self.SIZE_MM, places=6)
+        self.assertAlmostEqual(low[2], self.BASE_T_MM, places=6)
+        self.assertAlmostEqual(high[2], self.BASE_T_MM + self.MARKER_T_MM, places=6)
+
+    def test_pattern_volume_equals_its_black_modules(self):
+        _header, triangles = parse_stl(self.pattern_path)
+        black = sum(1 for row in self.grid for cell in row if cell)
+        module_mm = self.SIZE_MM / len(self.grid)
+        expected = black * module_mm ** 2 * self.MARKER_T_MM
+        self.assertAlmostEqual(signed_volume(triangles), expected, places=3)
+
+    def test_pattern_decodes_as_the_marker_when_seen_from_above(self):
+        image = _top_view(self.pattern_path, len(self.grid), pixels_per_module=12)
+        detected = _detect(image)
+        self.assertEqual(detected, [0])
+
+    def test_a_flipped_pattern_would_not_decode_the_same(self):
+        # guards the row-to-y mapping: mirroring the grid vertically must change
+        # the decoded id, otherwise the orientation test above proves nothing
+        flipped = list(reversed(self.grid))
+        path = Path(self.tmp.name) / "flipped.stl"
+        render_marker_stls(path, Path(self.tmp.name) / "f2.stl", flipped, self.SIZE_MM,
+                           quiet_zone_mm=self.QUIET_MM)
+        self.assertNotEqual(_detect(_top_view(path, len(self.grid), 12)), [0])
+
+    def test_rejects_a_grid_without_a_black_border(self):
+        hollow = [[False] * 8 for _ in range(8)]
+        hollow[3][3] = True
+        with self.assertRaises(ValueError):
+            render_marker_stls(self.base_path, self.pattern_path, hollow, self.SIZE_MM)
+
+    def test_rejects_non_positive_thickness(self):
+        with self.assertRaises(ValueError):
+            render_marker_stls(self.base_path, self.pattern_path, self.grid,
+                               self.SIZE_MM, base_thickness_mm=0.0)
+
+
+def _top_view(stl_path, modules: int, pixels_per_module: int = 12):
+    """Rasterise the upward-facing faces of a layer into a grayscale image."""
+    _header, triangles = parse_stl(stl_path)
+    low, high = bounds(triangles)
+    size_mm = high[0] - low[0]
+    per_mm = pixels_per_module * modules / size_mm
+    margin = 2 * pixels_per_module
+    width = int(round(size_mm * per_mm)) + 2 * margin
+    height = width
+    image = np.full((height, width), 255, dtype=np.uint8)
+    for normal, a, b, c in triangles:
+        if normal[2] < 0.9:  # only the top faces carry the marker pattern
+            continue
+        points = np.array(
+            [[(x - low[0]) * per_mm + margin, (high[1] - y) * per_mm + margin]
+             for x, y, _z in (a, b, c)],
+            dtype=np.int32,
+        )
+        cv2.fillPoly(image, [points], 0)
+    return image
+
+
+def _detect(image):
+    detector = cv2.aruco.ArucoDetector(DICTIONARY, cv2.aruco.DetectorParameters())
+    _corners, ids, _rejected = detector.detectMarkers(image)
+    return [] if ids is None else ids.ravel().tolist()
 
 
 class PdfCanvasTest(unittest.TestCase):

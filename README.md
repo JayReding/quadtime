@@ -73,6 +73,37 @@ The default gate is a **24 inch (0.6096 m) square opening**. Both the gate size
 and the marker size are configuration - see `gate_width_m`, `gate_height_m` and
 `marker_size_m`.
 
+### 3D printed markers
+
+To print the markers instead of sticking paper on the gate:
+
+```bash
+.venv/bin/python tools/make_markers.py --format stl
+```
+
+This writes two layers per marker - `marker_<id>_base.stl` and
+`marker_<id>_pattern.stl` - in millimetres and in the same coordinate frame, so
+they line up when imported together:
+
+- **base** is the white tile: the marker square plus its quiet zone, 1.6 mm
+  thick by default, sitting on the bed.
+- **pattern** is the black layer: the marker's black modules, 0.6 mm thick,
+  raised on top of the base. Where the marker is white you see the white base
+  underneath.
+
+Then either:
+
+- **two materials** (MMU, AMS, dual extruder): import both files as separate
+  objects and assign white and black; or
+- **one extruder**: import both and let the slicer print them layer by layer,
+  and add a filament change at the base thickness so the tile turns from white
+  to black exactly where the pattern begins.
+
+`--base-thickness-mm`, `--marker-thickness-mm` and `--quiet-zone-mm` adjust the
+layers. The default 1.6 mm and 0.6 mm are whole numbers of 0.2 mm layers, so the
+colour change falls on a layer boundary. `--format both` writes the PDFs and the
+STLs together.
+
 For a poor analogue feed: print matte, not glossy (specular highlights break the
 marker pattern), and keep the markers clean and unscuffed. Retroreflective
 markers plus an LED on the drone are possible but add weight and power.
@@ -178,7 +209,7 @@ The settings most worth tuning:
 ## Tools
 
 ```bash
-# print the gate markers, one PDF per marker
+# print the gate markers, one PDF per marker (--format stl for printable tiles)
 .venv/bin/python tools/make_markers.py
 
 # calibrate the camera
@@ -201,7 +232,9 @@ resulting lap times.
 Covers the gate geometry, pose recovery from a known camera position, the
 crossing fit and all of its rejection guards, the calibration pipeline (on
 synthetic ChArUco views), the marker PDFs (module pattern, exact physical size,
-page geometry) and the full race flow on the synthetic fly-through.
+page geometry), the marker STLs (volume, winding, layer alignment, and a
+top-down render that still decodes as the right marker) and the full race flow
+on the synthetic fly-through.
 
 ## Project layout
 
@@ -215,8 +248,9 @@ quadtime/pose.py          AprilTag detection and solvePnP pose
 quadtime/fpv.py           plane-distance tracking and pass detection
 quadtime/calibration.py   camera intrinsics, loading and nominal fallback
 quadtime/race.py          FPV engine, race state machine and capture thread
-quadtime/markers.py       printable marker pages at true physical size
+quadtime/markers.py       printable marker pages and 3D printed marker tiles
 quadtime/pdfcanvas.py     tiny dependency-free vector PDF writer
+quadtime/stl.py           tiny dependency-free binary STL writer
 templates/, static/       web UI
 tools/                    marker generator, camera calibration, clip analyser
 tests/                    unit and integration tests
