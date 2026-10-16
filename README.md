@@ -23,7 +23,10 @@ python3 -m venv .venv
 Open <http://127.0.0.1:5000/>, press **Start**, and after the 5 second countdown
 laps begin appearing. The synthetic scene flies a virtual camera through a gate
 built with the configured real dimensions and marker layout, so the whole
-pipeline is exercised end to end.
+pipeline is exercised end to end. Every pass is different - the drone lines up
+from a different distance and direction, crosses somewhere else in the opening,
+banks into the turn and takes a different time to come back around - so the lap
+times vary the way they do in a real race.
 
 Then point it at the real downlink:
 
@@ -238,8 +241,10 @@ Covers the gate geometry, pose recovery from a known camera position, the
 crossing fit and all of its rejection guards, the calibration pipeline (on
 synthetic ChArUco views), the marker PDFs (module pattern, exact physical size,
 page geometry), the marker STLs (volume, winding, layer alignment, and a
-top-down render that still decodes as the right marker) and the full race flow
-on the synthetic fly-through.
+top-down render that still decodes as the right marker), the synthetic flight
+itself (camera orientation, slanted passes, schedule variety and a check that
+every generated pass scores exactly one lap) and the full race flow on the
+synthetic fly-through.
 
 ## Project layout
 
@@ -247,7 +252,7 @@ on the synthetic fly-through.
 app.py                    Flask app and CLI
 quadtime/config.py        all tunable settings
 quadtime/capture.py       capture-card / file / synthetic frame sources
-quadtime/synthetic.py     the synthetic fly-through scene
+quadtime/synthetic.py     synthetic fly-through: camera path, flight schedule, renderer
 quadtime/gatemodel.py     the metric gate (marker 3D positions)
 quadtime/pose.py          AprilTag detection and solvePnP pose
 quadtime/fpv.py           plane-distance tracking and pass detection
