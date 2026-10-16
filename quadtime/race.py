@@ -132,6 +132,22 @@ class RaceController:
                 self.end_t = self.now()
                 self.phase = Phase.STOPPED
 
+    def reset_race(self) -> None:
+        """Clear the finished race and go back to idle.
+
+        Only meaningful once a race has been stopped, so anything else is
+        ignored - that keeps a stale click from wiping a race in progress.
+        """
+        with self._lock:
+            if self.phase is not Phase.STOPPED:
+                return
+            self.laps = []
+            self.engine.reset()
+            self.start_t = None
+            self.end_t = None
+            self.countdown_end = None
+            self.phase = Phase.IDLE
+
     # -- worker ----------------------------------------------------------
     def launch(self) -> None:
         if self._thread is not None:

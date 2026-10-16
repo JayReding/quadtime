@@ -42,6 +42,11 @@ def create_app(cfg: Config) -> tuple[Flask, RaceController]:
         controller.stop_race()
         return jsonify(controller.snapshot())
 
+    @app.post("/api/race/reset")
+    def race_reset():
+        controller.reset_race()
+        return jsonify(controller.snapshot())
+
     @app.get("/api/race/state")
     def race_state():
         return jsonify(controller.snapshot())

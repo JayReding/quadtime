@@ -4,8 +4,8 @@ Computer-vision timing for FPV drone racing, from the drone's own camera.
 
 quadtime watches a first-person video feed, uses the markers on a gate to work
 out how far the drone is from the gate plane, and scores a lap the moment it
-crosses. It serves a small Flask web UI with a Start/Stop button, a 5 second
-countdown, a live timer and a lap list.
+crosses. It serves a small Flask web UI with Start/Stop/Reset buttons, a 5
+second countdown, a live timer and a lap list.
 
 This is a **proof of concept**: one pilot, one gate (start/finish), open-ended
 race format, FPV camera only.
@@ -154,6 +154,10 @@ downlink ─▶ capture thread ─▶ AprilTag detection ─▶ solvePnP pose
    distance and recovers the crossing by interpolating between frames when the
    gate is visible across the plane, or by fitting a local straight line and
    extrapolating when it is not (see below).
+5. **Race state machine** (`quadtime/race.py`) moves idle → countdown → running →
+   stopped. Passes only score while running. Once stopped the UI shows the total
+   time, the best and average lap, and a **Reset** button clears them back to
+   idle so the next race starts from zero.
 
 ### Why every pass is extrapolated
 
@@ -201,6 +205,7 @@ The settings most worth tuning:
 |--------|-------|---------|
 | POST | `/api/race/start` | begin the countdown |
 | POST | `/api/race/stop` | end the race, return the summary |
+| POST | `/api/race/reset` | clear the finished race, only once stopped |
 | GET | `/api/race/state` | phase, clock, laps, gate lock and diagnostics |
 | GET | `/api/race/laps` | just the lap list |
 | GET | `/api/config` | current configuration |

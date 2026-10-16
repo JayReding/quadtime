@@ -13,6 +13,7 @@ const els = {
   error: document.getElementById("error"),
   start: document.getElementById("start"),
   stop: document.getElementById("stop"),
+  reset: document.getElementById("reset"),
   lapBody: document.querySelector("#laps tbody"),
   summary: document.getElementById("summary"),
   sumTotal: document.getElementById("sum-total"),
@@ -30,6 +31,7 @@ async function post(url) {
 
 els.start.addEventListener("click", () => post("/api/race/start"));
 els.stop.addEventListener("click", () => post("/api/race/stop"));
+els.reset.addEventListener("click", () => post("/api/race/reset"));
 
 let renderedLaps = -1;
 
@@ -97,6 +99,7 @@ async function refresh() {
 
   els.start.disabled = state.phase === "countdown" || state.phase === "running";
   els.stop.disabled = !(state.phase === "countdown" || state.phase === "running");
+  els.reset.disabled = state.phase !== "stopped";
 
   renderLaps(state.laps);
   renderSummary(state.summary);

@@ -71,6 +71,67 @@ class RaceStateMachineTest(unittest.TestCase):
         self.assertEqual(controller.snapshot()["laps"], [])
 
 
+class RaceResetTest(unittest.TestCase):
+    def _synthetic(self):
+        cfg = Config()
+        cfg.countdown_s = 0.0
+        path = FlightPath(start_distance_m=2.5, speed_mps=3.0)
+        source = SyntheticSource(cfg, realtime=False, path=path, loop=True, pause_s=2.5)
+        return cfg, RaceController(cfg, source=source)
+
+    def test_reset_is_ignored_until_the_race_is_stopped(self):
+        cfg = Config()
+        cfg.countdown_s = 1.0
+        controller = RaceController(cfg, source=BlankSource())
+
+        controller.reset_race()
+        self.assertEqual(controller.snapshot()["phase"], Phase.IDLE.value)
+
+        controller.start_race()
+        controller.reset_race()
+        self.assertEqual(controller.snapshot()["phase"], Phase.COUNTDOWN.value)
+
+        for _ in range(int(1.0 * 30) + 2):
+            controller.tick()
+        controller.reset_race()
+        self.assertEqual(controller.snapshot()["phase"], Phase.RUNNING.value)
+
+    def test_reset_clears_the_laps_and_the_clock(self):
+        cfg, controller = self._synthetic()
+        controller.start_race()
+        for _ in range(int(10 * cfg.fps)):
+            controller.tick()
+        controller.stop_race()
+        before = controller.snapshot()
+        self.assertGreaterEqual(len(before["laps"]), 2)
+        self.assertIsNotNone(before["summary"])
+
+        controller.reset_race()
+
+        after = controller.snapshot()
+        self.assertEqual(after["phase"], Phase.IDLE.value)
+        self.assertEqual(after["laps"], [])
+        self.assertEqual(after["elapsed"], 0.0)
+        self.assertIsNone(after["summary"])
+
+    def test_a_race_can_be_run_again_after_a_reset(self):
+        cfg, controller = self._synthetic()
+        controller.start_race()
+        for _ in range(int(10 * cfg.fps)):
+            controller.tick()
+        controller.stop_race()
+        controller.reset_race()
+
+        controller.start_race()
+        for _ in range(int(10 * cfg.fps)):
+            controller.tick()
+
+        laps = controller.snapshot()["laps"]
+        self.assertGreaterEqual(len(laps), 2)
+        self.assertEqual(laps[0]["index"], 1)
+        self.assertGreater(laps[-1]["total_time"], 0.0)
+
+
 class FpvRaceTest(unittest.TestCase):
     def _controller(self, **kwargs):
         cfg = Config()
